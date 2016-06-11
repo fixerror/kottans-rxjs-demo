@@ -1,16 +1,20 @@
-const refreshClickStream$ = Rx.Observable.fromEvent(
-  document.querySelector('.refresh'),
-  'click'
-);
+const fakeArray = Array.from({ length: 3});
+
+const closeButtonStreamsArray = fakeArray.map((_, idx) => Rx.Observable.fromEvent(
+    document.querySelectorAll('li')[idx].querySelector('.close'),
+    'click'
+  ).startWith(null))
+;
+
+const close1Stream$ = Rx.Observable.fromEvent(document.querySelector('.close'), 'click')
+  .startWith(null)
+;
+
+const refreshClickStream$ = Rx.Observable.fromEvent(document.querySelector('.refresh'), 'click');
 
 const requestStream$ = refreshClickStream$
   .startWith('startup click')
-  .map(() =>
-    [
-      'http://smartjs.academy:10001?since=',
-      ~~(Math.random() * 500)
-    ].join('')
-  )
+  .map(() => `http://smartjs.academy:10001?since=${~~(Math.random() * 500)}`)
 ;
 
 requestStream$.subscribe(requestUrl => {
@@ -18,42 +22,18 @@ requestStream$.subscribe(requestUrl => {
     fetch(requestUrl).then(r => r.json())
   );
 
-  const s1Stream$ = responseStream$
-    .map(users => users[Math.floor(
-      Math.random() * users.length
-    )])
-  ;
+  const suggestionStreams = fakeArray.map((_, idx ) =>
+    closeButtonStreamsArray[idx]
+      .combineLatest(responseStream$, (click, users) => users[Math.floor(
+        Math.random() * users.length
+      )])
+      .startWith(null)
+  );
 
-  const s2Stream$ = responseStream$
-    .map(users => users[Math.floor(
-      Math.random() * users.length
-    )])
-  ;
+  const spinner='<i class="fa fa-spin fa-spinner"></i>';
 
-  const s3Stream$ = responseStream$
-    .map(users => users[Math.floor(
-      Math.random() * users.length
-    )])
-  ;
-
-  const suggestion1Stream$ = s1Stream$.merge(refreshClickStream$.map(() => null))
-  const suggestion2Stream$ = s2Stream$.merge(refreshClickStream$.map(() => null))
-  const suggestion3Stream$ = s3Stream$.merge(refreshClickStream$.map(() => null))
-
-
-  suggestion1Stream$.subscribe(item => {
-    const li = document.querySelectorAll('li')[0];
-    li.textContent = item ? item.login : '';
-  });
-
-  suggestion2Stream$.subscribe(item => {
-    const li = document.querySelectorAll('li')[1];
-    li.textContent = item ? item.login : '';
-  });
-
-  suggestion3Stream$.subscribe(item => {
-    const li = document.querySelectorAll('li')[2];
-    li.textContent = item ? item.login : '';
-  });
-
+  fakeArray.map((_, idx) => suggestionStreams[idx].startWith(null).subscribe(item => {
+    const p = document.querySelectorAll('li')[idx].querySelector('.name');
+    p.innerHTML = item ? item.login : spinner;
+  }));
 });
